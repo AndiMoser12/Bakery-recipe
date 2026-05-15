@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trafostation AHI Bewertungstool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<header>
+  <div class="header-icon">⚡</div>
+  <div>
+    <h1>Trafostation Bewertungstool</h1>
+    <p>Asset Health Index & Risikobasierte Instandhaltungsplanung</p>
+  </div>
+  <div class="header-right">
+    <button class="header-btn" onclick="toggleHelpPanel()">?</button>
+    <button class="header-btn" onclick="toggleSettingsPanel()">⚙</button>
+  </div>
+</header>
+
+<!-- ═══════════════ DASHBOARD VIEW ═══════════════ -->
+<div id="dashboard-view">
+  <div class="main">
+    <div class="dashboard-header">
+      <h2>Bewertungsübersicht</h2>
+      <button class="btn btn-primary" onclick="app.goToForm()">+ Neue Bewertung</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Gesamtbewertungen</div>
+      </div>
+      <div class="stat-card stat-critical">
+        <div class="stat-value" id="stat-critical">0</div>
+        <div class="stat-label">Kritisch</div>
+      </div>
+      <div class="stat-card stat-warning">
+        <div class="stat-value" id="stat-warning">0</div>
+        <div class="stat-label">Warnung</div>
+      </div>
+      <div class="stat-card stat-good">
+        <div class="stat-value" id="stat-good">0</div>
+        <div class="stat-label">OK</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Alle Stationen</div>
+      <div id="no-stations" style="padding: 2rem; text-align: center; color: var(--text3);">
+        <p>Keine Bewertungen vorhanden. <a href="#" onclick="app.goToForm(); return false;">Erstelle eine neue Bewertung →</a></p>
+      </div>
+      <div id="table-wrapper" class="hidden" style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Stations-ID</th>
+              <th>Standort</th>
+              <th>AHI</th>
+              <th>CR</th>
+              <th>Status</th>
+              <th>Datum</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="stations-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ FORM VIEW ═══════════════ -->
+<div id="form-view" class="hidden">
+  <div class="progress-bar-wrap">
+    <div class="step-dots">
+      <div class="step-dot active" id="dot-1" onclick="app.jumpStep(1)">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2" onclick="app.jumpStep(2)">2</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3" onclick="app.jumpStep(3)">3</div>
+      <div class="step-line" id="line-3"></div>
+      <div class="step-dot" id="dot-4" onclick="app.jumpStep(4)">4</div>
+      <div class="step-line" id="line-4"></div>
+      <div class="step-dot" id="dot-5" onclick="app.jumpStep(5)">5</div>
+    </div>
+    <div class="step-label" id="step-label">Stationsdaten</div>
+  </div>
+
+  <div class="main">
+    <!-- ═══════════════ STEP 1 ═══════════════ -->
+    <div id="step-1" class="step-panel">
+      <div class="step-intro">
+        <h2>Stationsdaten erfassen</h2>
+        <p>Grundlegende Informationen zur Trafostation</p>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">🏭 Allgemeine Angaben</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Stations-ID / Bezeichnung *</label>
+            <input type="text" id="f-id" placeholder="z. B. TS-0472" required />
+          </div>
+          <div class="field">
+            <label>Standort / Gemeinde *</label>
+            <input type="text" id="f-ort" placeholder="z. B. Davos, GR" required />
+          </div>
+          <div class="field">
+            <label>Baujahr der Anlage</label>
+            <input type="number" id="f-baujahr" placeholder="z. B. 1987" min="1920" max="2025" />
+          </div>
+          <div class="field">
+            <label>Nennleistung [kVA]</label>
+            <input type="number" id="f-leistung" placeholder="z. B. 630" />
+          </div>
+          <div class="field">
+            <label>Spannungsebene</label>
+            <select id="f-spannung">
+              <option value="">– wählen –</option>
+              <option>6 kV</option>
+              <option>10 kV</option>
+              <option>16 kV</option>
+              <option>20 kV</option>
+              <option>36 kV</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Stationstyp</label>
+            <select id="f-typ">
+              <option value="">– wählen –</option>
+              <option>Freiluftstation (Mast)</option>
+              <option>Kompaktstation (Fertigbau)</option>
+              <option>Gebäudestation (Mauerwerk)</option>
+              <option>Kabelverteilstation</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Anzahl angeschlossener Kunden</label>
+            <input type="number" id="f-kunden" placeholder="z. B. 250" />
+          </div>
+          <div class="field">
+            <label>Inspekteur / Ersteller</label>
+            <input type="text" id="f-inspektor" placeholder="Name" />
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label>Inspektionsdatum</label>
+            <input type="date" id="f-datum" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">📋 Netzkritikalität – Vorab-Einschätzung</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Redundanz / n-1 Versorgung vorhanden?</label>
+            <select id="f-redundanz">
+              <option value="">– wählen –</option>
+              <option value="ja">Ja – Redundanz vorhanden</option>
+              <option value="nein">Nein – Einspeisung ohne Backup</option>
+              <option value="teilweise">Teilweise / Notversorgung</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Versorgung kritischer Infrastruktur?</label>
+            <select id="f-kritinfra">
+              <option value="">– wählen –</option>
+              <option value="ja">Ja (Spital, Feuerwehr, Bahn)</option>
+              <option value="nein">Nein</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">💰 Finanzielle Angaben (Amortisationsanalyse)</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Wiederbeschaffungswert [CHF]</label>
+            <input type="number" id="f-wbw" placeholder="z. B. 180000" min="0" />
+          </div>
+          <div class="field">
+            <label>Technische Nutzungsdauer [Jahre]</label>
+            <input type="number" id="f-nutzung" placeholder="z. B. 40" min="10" max="80" value="40" />
+          </div>
+          <div class="field">
+            <label>Jährl. Instandhaltungskosten [CHF/Jahr]</label>
+            <input type="number" id="f-wartung" placeholder="z. B. 3500" min="0" />
+          </div>
+          <div class="field">
+            <label>Abschreibungsmethode</label>
+            <select id="f-abschreibung">
+              <option value="linear">Linear</option>
+              <option value="degressiv">Degressiv</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Kalkulationszinssatz [%]</label>
+            <input type="number" id="f-zins" placeholder="3.5" min="0" max="15" step="0.1" value="3.5" />
+          </div>
+          <div class="field">
+            <label>Restwert am Ende [%]</label>
+            <input type="number" id="f-restwert" placeholder="10" min="0" max="50" value="10" />
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="app.goStep(2)">Weiter →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ STEP 2 ═══════════════ -->
+    <div id="step-2" class="step-panel hidden">
+      <div class="step-intro">
+        <h2>Transformator & Messtechnik</h2>
+        <p>Technischer Zustand des Transformators</p>
+      </div>
+
+      <div class="scale-legend">
+        <div class="sl-1">1<br><b>Sehr gut</b></div>
+        <div class="sl-2">2<br><b>Gut</b></div>
+        <div class="sl-3">3<br><b>Mäßig</b></div>
+        <div class="sl-4">4<br><b>Schlecht</b></div>
+        <div class="sl-5">5<br><b>Kritisch</b></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">🛢️ Chemisch-physikalische Diagnose</div>
+        <div id="step2-params"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">📊 Betriebliche Parameter</div>
+        <div id="step2-op-params"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="app.goStep(1)">← Zurück</button>
+        <button class="btn btn-primary" onclick="app.goStep(3)">Weiter →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ STEP 3 ═══════════════ -->
+    <div id="step-3" class="step-panel hidden">
+      <div class="step-intro">
+        <h2>Schaltanlage & Niederspannungsverteilung</h2>
+      </div>
+
+      <div class="scale-legend">
+        <div class="sl-1">1<br><b>Sehr gut</b></div>
+        <div class="sl-2">2<br><b>Gut</b></div>
+        <div class="sl-3">3<br><b>Mäßig</b></div>
+        <div class="sl-4">4<br><b>Schlecht</b></div>
+        <div class="sl-5">5<br><b>Kritisch</b></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">⚡ Mittelspannungsanlage</div>
+        <div id="step3-ms-params"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">📐 Niederspannungsverteilung</div>
+        <div id="step3-ns-params"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="app.goStep(2)">← Zurück</button>
+        <button class="btn btn-primary" onclick="app.goStep(4)">Weiter →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ STEP 4 ═══════════════ -->
+    <div id="step-4" class="step-panel hidden">
+      <div class="step-intro">
+        <h2>Gebäudeinfrastruktur & Kritikalität</h2>
+      </div>
+
+      <div class="scale-legend">
+        <div class="sl-1">1<br><b>Sehr gut</b></div>
+        <div class="sl-2">2<br><b>Gut</b></div>
+        <div class="sl-3">3<br><b>Mäßig</b></div>
+        <div class="sl-4">4<br><b>Schlecht</b></div>
+        <div class="sl-5">5<br><b>Kritisch</b></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">🏗️ Gebäudeinfrastruktur</div>
+        <div id="step4-building-params"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">⚠️ Netzkritikalität (CR = SE × OC)</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Schweregrad der Ausfallfolgen (SE) [1–5]</label>
+            <select id="f-se">
+              <option value="1">1 – Vernachlässigbar</option>
+              <option value="2">2 – Gering</option>
+              <option value="3" selected>3 – Mittel</option>
+              <option value="4">4 – Hoch</option>
+              <option value="5">5 – Sehr hoch</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Eintrittswahrscheinlichkeit (OC) [1–5]</label>
+            <select id="f-oc">
+              <option value="1">1 – Sehr unwahrscheinlich</option>
+              <option value="2">2 – Unwahrscheinlich</option>
+              <option value="3" selected>3 – Möglich</option>
+              <option value="4">4 – Wahrscheinlich</option>
+              <option value="5">5 – Sicher</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid single">
+          <div class="field">
+            <label>Freitextkommentar (optional)</label>
+            <textarea id="f-kommentar" rows="3" placeholder="Ergänzende Bemerkungen…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="app.goStep(3)">← Zurück</button>
+        <button class="btn btn-primary" onclick="app.calcAndShow()">Bewertung berechnen →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ STEP 5: RESULTS ═══════════════ -->
+    <div id="step-5" class="step-panel hidden">
+      <div class="results-header" id="results-header">
+        <div class="ahi-circle">
+          <div class="ahi-num" id="ahi-num">–</div>
+          <div class="ahi-lbl">AHI Score</div>
+        </div>
+        <div class="results-meta">
+          <h2 id="res-status">–</h2>
+          <p id="res-strategy">–</p>
+          <div class="station-id" id="res-id">–</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-ahi" style="color: var(--accent)">–</div>
+          <div class="kpi-label">Asset Health Index</div>
+          <div style="margin-top: 6px;">
+            <div class="ampel-bar"><div class="ampel-pointer" id="ahi-ptr" style="left: 0%; background: #888;"></div></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-cr">–</div>
+          <div class="kpi-label">Kritikalitätsscore CR</div>
+          <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">SE × OC = <span id="kpi-soc">–</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-age">–</div>
+          <div class="kpi-label">Anlagenalter [Jahre]</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" id="kpi-ko">–</div>
+          <div class="kpi-label">K.O.-Kriterien</div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="section-card" style="margin-bottom: 0;">
+          <div class="section-title">Zustandsprofil – Radardiagramm</div>
+          <div style="position: relative; height: 280px;">
+            <canvas id="radarChart"></canvas>
+          </div>
+        </div>
+        <div class="section-card" style="margin-bottom: 0;">
+          <div class="section-title">Risikomatrix (AHI × CR)</div>
+          <div class="risk-matrix-wrap">
+            <div class="risk-matrix" id="riskMatrix"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">📊 Parameterbeiträge</div>
+        <div style="position: relative; height: 260px;">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+
+      <div id="amort-section" class="hidden">
+        <div class="section-card">
+          <div class="section-title">📉 Amortisationsanalyse</div>
+          <div id="amort-kpi-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.25rem;"></div>
+          <div style="position: relative; height: 320px;">
+            <canvas id="amortChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">✅ Empfehlungen</div>
+        <ul class="recommendations-list" id="rec-list"></ul>
+      </div>
+
+      <div id="ko-warning" class="hidden" style="background: var(--red-bg); border: 2px solid var(--red); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.25rem;">
+        <strong style="color: var(--red);">⚠ K.O.-Kriterium ausgelöst!</strong>
+        <p style="margin-top: 4px; color: var(--text);" id="ko-detail"></p>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">📋 Stationssteckbrief</div>
+        <div id="station-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 2rem; font-size: 13px;"></div>
+        <div id="kommentar-box" class="hidden" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <div style="font-size: 12px; color: var(--text3); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Kommentar</div>
+          <div id="kommentar-text"></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="app.goStep(4)">← Zurück</button>
+        <button class="btn btn-primary" onclick="app.saveCurrent()">Speichern</button>
+        <button class="btn btn-print" onclick="exportPDF()">🖨 PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETTINGS PANEL ═══════════════ -->
+<div id="settings-panel" class="panel hidden">
+  <div class="panel-header">
+    <h3>Einstellungen</h3>
+    <button onclick="toggleSettingsPanel()" class="close-btn">✕</button>
+  </div>
+  <div class="panel-content">
+    <div class="field">
+      <label>Farbmodus</label>
+      <select id="color-mode" onchange="setColorMode(this.value)">
+        <option value="auto">Auto</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
+    </div>
+    <div class="panel-section">
+      <h4>Datenverwaltung</h4>
+      <button class="btn btn-secondary" onclick="exportJSON()">💾 JSON exportieren</button>
+      <button class="btn btn-secondary" onclick="exportExcel()">📊 Excel exportieren</button>
+      <button class="btn btn-secondary" onclick="importJSON()">📂 JSON importieren</button>
+      <button class="btn btn-danger" onclick="clearDatabase()">🗑 Alle Daten löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ HELP PANEL ═══════════════ -->
+<div id="help-panel" class="panel hidden">
+  <div class="panel-header">
+    <h3>Anleitung</h3>
+    <button onclick="toggleHelpPanel()" class="close-btn">✕</button>
+  </div>
+  <div class="panel-content">
+    <h4>Wie verwende ich das Tool?</h4>
+    <p><strong>Schritt 1–4:</strong> Füllen Sie alle Felder aus. Nutzen Sie N/A-Buttons für nicht anwendbare Parameter.</p>
+    <p><strong>Schritt 5:</strong> Ergebnisse mit AHI, Kritikalitätsscore und Visualisierungen.</p>
+    <p><strong>Export:</strong> PDF für Berichte, Excel für Datenanalyse, JSON für Sicherung.</p>
+    <h4>Bewertungsskala</h4>
+    <ul>
+      <li><strong>1 – Sehr gut:</strong> Neue oder neuwertige Anlage</li>
+      <li><strong>2 – Gut:</strong> Normale Abnützung</li>
+      <li><strong>3 – Mässig:</strong> Überwachung erforderlich</li>
+      <li><strong>4 – Schlecht:</strong> Massnahmen planen</li>
+      <li><strong>5 – Kritisch:</strong> Sofortmassnahme erforderlich</li>
+    </ul>
+  </div>
+</div>
+
+<script src="js/db.js"></script>
+<script src="js/calculations.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
